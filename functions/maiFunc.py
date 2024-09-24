@@ -281,6 +281,7 @@ def mai_b50(data):
     #     get_msg(data, "该用户设置了禁止查询哦！")
     #     return "b50", 403
     # userInfo = res.text
+
     with open("./test.txt", "r", encoding="utf-8") as f:
         testInfo = json.loads(f.read())
     bg = Image.open("C:/Users/12203/Desktop/cut.jpg").resize([900, 2100])
@@ -296,8 +297,8 @@ def mai_b50(data):
         img = img.resize((50, 50))
         songImg.append(img)
 
-    position = []
     # 动态计算位置
+    position = []
     for index, img in enumerate(songImg):
         x = 50 + (index % 5) * 150
         y = 50 + (index // 5) * 150
@@ -307,17 +308,40 @@ def mai_b50(data):
         bg.paste(img, pos)
         draw.text(
             (pos[0] + 55, pos[1]),
-            t["title"][:5]
-            + "\n"
-            + str(t["achievements"])
-            + "%\n"
-            + str(t["ds"])
-            + " "
-            + str(t["ra"]),
+            (
+                t["title"][:5] + "\n" + str(t["achievements"]) + ".000"
+                if "." not in str(t["achievements"])
+                else str(t["achievements"]).split(".")[1].ljust(3, "0")
+                + "%\n"
+                + str(t["ds"])
+                + " -> "
+                + str(t["ra"])
+            ),
             fill=(0, 0, 0),
             font=ImageFont.truetype("C:/WINDOWS/FONTS/BIZ-UDMINCHOM.TTC", 20),
         )
 
+    position = position.reverse()
+    for img, pos, t in zip(songImg, position, testInfo["charts"]["dx"]):
+        bg.paste(img, pos)
+        draw.text(
+            (pos[0] + 55, pos[1]),
+            (
+                t["title"][:5] + "\n" + str(t["achievements"]) + ".000"
+                if "." not in str(t["achievements"])
+                else str(t["achievements"]).split(".")[1].ljust(3, "0")
+                + "%\n"
+                + str(t["ds"])
+                + " -> "
+                + str(t["ra"])
+            ),
+            fill=(0, 0, 0),
+            font=ImageFont.truetype("C:/WINDOWS/FONTS/BIZ-UDMINCHOM.TTC", 20),
+        )
+
+    # 白金 250, 240, 111
+    # 金  255, 243, 0
+    #
     bg.save("C:/Users/12203/Desktop/test111.png")
     return "b50", 200
 
