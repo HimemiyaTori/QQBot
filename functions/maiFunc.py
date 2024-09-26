@@ -284,7 +284,7 @@ def mai_b50(data):
 
     with open("./test.txt", "r", encoding="utf-8") as f:
         testInfo = json.loads(f.read())
-    bg = Image.open("C:/Users/12203/Desktop/cut.jpg").resize([900, 2100])
+    bg = Image.open("C:/Users/12203/Desktop/bg/119614191_p0.jpg").resize([2100, 2100])
     draw = ImageDraw.Draw(bg)
     songImgs = []
     for s in testInfo["charts"]["sd"]:
@@ -294,49 +294,60 @@ def mai_b50(data):
     songImg = []
     for i in songImgs:
         img = Image.open(i)
-        img = img.resize((50, 50))
+        img = img.resize((70, 70))
         songImg.append(img)
 
     # 动态计算位置
     position = []
     for index, img in enumerate(songImg):
-        x = 50 + (index % 5) * 150
-        y = 50 + (index // 5) * 150
+        x = 150 + (index % 5) * 300
+        y = 500 + (index // 5) * 150
         position.append((x, y))
 
     for img, pos, t in zip(songImg, position, testInfo["charts"]["sd"]):
         bg.paste(img, pos)
         draw.text(
-            (pos[0] + 55, pos[1]),
+            (pos[0] + 70, pos[1]),
             (
-                t["title"][:5] + "\n" + str(t["achievements"]) + ".000"
-                if "." not in str(t["achievements"])
-                else str(t["achievements"]).split(".")[1].ljust(3, "0")
+                t["title"][:13]
+                + "\n"
+                + str(t["achievements"]).split(".")[0]
+                + "."
+                + (
+                    "0000"
+                    if "." not in str(t["achievements"])
+                    else (str(t["achievements"]).split(".")[1])[:4].ljust(4, "0")
+                )
                 + "%\n"
                 + str(t["ds"])
                 + " -> "
                 + str(t["ra"])
             ),
             fill=(0, 0, 0),
-            font=ImageFont.truetype("C:/WINDOWS/FONTS/BIZ-UDMINCHOM.TTC", 20),
+            font=ImageFont.truetype("C:/WINDOWS/FONTS/UDDIGIKYOKASHON-B.TTC", 16),
         )
 
-    position = position.reverse()
-    for img, pos, t in zip(songImg, position, testInfo["charts"]["dx"]):
+    for img, pos, t in zip(songImg[35:], position[35:], testInfo["charts"]["dx"]):
         bg.paste(img, pos)
         draw.text(
-            (pos[0] + 55, pos[1]),
+            (pos[0] + 70, pos[1]),
             (
-                t["title"][:5] + "\n" + str(t["achievements"]) + ".000"
-                if "." not in str(t["achievements"])
-                else str(t["achievements"]).split(".")[1].ljust(3, "0")
+                t["title"][:10]
+                + "\n"
+                + str(t["achievements"]).split(".")[0]
+                + "."
+                + (
+                    ".0000"
+                    if "." not in str(t["achievements"])
+                    else (str(t["achievements"]).split(".")[1])[:4].ljust(4, "0")
+                )
                 + "%\n"
                 + str(t["ds"])
                 + " -> "
                 + str(t["ra"])
             ),
             fill=(0, 0, 0),
-            font=ImageFont.truetype("C:/WINDOWS/FONTS/BIZ-UDMINCHOM.TTC", 20),
+            font=ImageFont.truetype("C:/WINDOWS/FONTS/UDDIGIKYOKASHON-B.TTC", 16),
         )
 
     # 白金 250, 240, 111

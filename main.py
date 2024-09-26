@@ -62,7 +62,7 @@ def post_data():
     if data["raw_message"] == "bot退群":
         return bot_exit(data)
 
-    if data["raw_message"] == "b50":
+    if data["raw_message"] == "b50" or data["raw_message"] == "B50":
         return mai_b50(data)
     if data["raw_message"] == "mai update":
         return mai_update(data)
