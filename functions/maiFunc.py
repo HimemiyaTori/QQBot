@@ -1,5 +1,3 @@
-import array
-
 from PIL import Image, ImageDraw, ImageFont
 
 from __init__ import *
@@ -70,8 +68,8 @@ def mai_search(data):
             if name in aliases:
                 id.append(sID)
     else:
-        # 拆分id1145，1145id
-        id = id.replace("id", "")
+        # 拆分 id1145 与 1145 id
+        id = id.replace("id", "").replace(" ", "")
 
     if type == "宴会場" or len(id[0]) > 5:
         for i in range(len(id)):
@@ -171,11 +169,9 @@ def mai_random(data):
     diff = ["12", "12+", "13", "13+", "14", "14+", "15"]
 
     info = data["raw_message"].partition(" ")
-    # 判断后面有无限定条件（等级、难度
+    # 判断后面有无限定条件：等级、难度
     if info[0] != data["raw_message"]:
         info = info[2]
-        if "红" in info:
-            diffNum = 2
         if "1" in info:
             num = int(info.partition("1")[2][0])
             nd = (num - 2) * 2
@@ -183,6 +179,8 @@ def mai_random(data):
                 nd += 1
             if num >= 4:
                 diffNum = random.randint(3, 4)
+        if "红" in info:
+            diffNum = 2
         if "紫" in info:
             diffNum = 3
         if "白" in info:
@@ -190,14 +188,17 @@ def mai_random(data):
         if "宴" in info:
             diffNum = 0
 
-    # if nd == 6:
-    #     song = "PANDORA PARADOXXX  -  ID 1\n难度：Re:Master 15.0  (SD)\n曲师：削除\n谱师：PANDORA PARADOXXX\nBPM：150\n分类：舞萌\n版本：maimai FiNALE"
-    #     msg = {
-    #         "type": "text",
-    #         "data": {"text": song},
-    #     }
-    #     post_msg(data, msg)
-    #     return song, 200
+    if nd == 6:
+        song = [
+            "PANDORA PARADOXXX  -  ID 1\n难度：Re:Master 15.0  (SD)\n曲师：削除\n谱师：PANDORA PARADOXXX\nBPM：150\n分类：舞萌\n版本：maimai FiNALE",
+            "系",
+        ]
+        msg = {
+            "type": "text",
+            "data": {"text": song[random.randint(0, 1)]},
+        }
+        post_msg(data, msg)
+        return song, 200
 
     mai_update(data)
     songs = json.loads(str(mai_data), strict=False)
@@ -284,7 +285,11 @@ def mai_b50(data):
 
     with open("./test.txt", "r", encoding="utf-8") as f:
         testInfo = json.loads(f.read())
-    bg = Image.open("C:/Users/12203/Desktop/bg/119614191_p0.jpg").resize([2100, 2100])
+    bg = (
+        Image.open("C:/Users/12203/Desktop/bg/119614191_p0.png")
+        .resize([2100, 2100])
+        .convert("RGBA")
+    )
     draw = ImageDraw.Draw(bg)
     songImgs = []
     for s in testInfo["charts"]["sd"]:
@@ -294,7 +299,7 @@ def mai_b50(data):
     songImg = []
     for i in songImgs:
         img = Image.open(i)
-        img = img.resize((70, 70))
+        img = img.resize((120, 120), Image.LANCZOS)
         songImg.append(img)
 
     # 动态计算位置
@@ -307,7 +312,7 @@ def mai_b50(data):
     for img, pos, t in zip(songImg, position, testInfo["charts"]["sd"]):
         bg.paste(img, pos)
         draw.text(
-            (pos[0] + 70, pos[1]),
+            (pos[0] + 125, pos[1]),
             (
                 t["title"][:13]
                 + "\n"
@@ -316,11 +321,11 @@ def mai_b50(data):
                 + (
                     "0000"
                     if "." not in str(t["achievements"])
-                    else (str(t["achievements"]).split(".")[1])[:4].ljust(4, "0")
+                    else str(t["achievements"]).split(".")[1].ljust(4, "0")
                 )
                 + "%\n"
                 + str(t["ds"])
-                + " -> "
+                + " > "
                 + str(t["ra"])
             ),
             fill=(0, 0, 0),
@@ -330,24 +335,34 @@ def mai_b50(data):
     for img, pos, t in zip(songImg[35:], position[35:], testInfo["charts"]["dx"]):
         bg.paste(img, pos)
         draw.text(
-            (pos[0] + 70, pos[1]),
+            (pos[0] + 125, pos[1]),
+            t["title"][:20],
+            fill=(0, 0, 0),
+            font=ImageFont.truetype("C:/WINDOWS/FONTS/UDDIGIKYOKASHON-B.TTC", 16),
+        )
+        draw.text(
+            (pos[0] + 125, pos[1] + 17),
             (
-                t["title"][:10]
-                + "\n"
-                + str(t["achievements"]).split(".")[0]
+                str(t["achievements"]).split(".")[0]
                 + "."
                 + (
                     ".0000"
                     if "." not in str(t["achievements"])
-                    else (str(t["achievements"]).split(".")[1])[:4].ljust(4, "0")
+                    else str(t["achievements"]).split(".")[1].ljust(4, "0")
                 )
-                + "%\n"
-                + str(t["ds"])
-                + " -> "
-                + str(t["ra"])
             ),
             fill=(0, 0, 0),
-            font=ImageFont.truetype("C:/WINDOWS/FONTS/UDDIGIKYOKASHON-B.TTC", 16),
+            font=ImageFont.truetype("C:/WINDOWS/FONTS/UDDIGIKYOKASHON-B.TTC", 23),
+        )
+        bg.paste(
+            Image.open("C:/Users/12203/Desktop/" + t["rate"] + ".png").convert("RGBA"),
+            (pos[0] + 125, pos[1] + 17),
+        )
+        draw.text(
+            (pos[0] + 125, pos[1] + 41),
+            ("%\n" + str(t["ds"]) + " -> " + str(t["ra"])),
+            fill=(0, 0, 0),
+            font=ImageFont.truetype("C:/WINDOWS/FONTS/UDDIGIKYOKASHON-B.TTC", 23),
         )
 
     # 白金 250, 240, 111
@@ -388,7 +403,7 @@ def mai_alia(data):
             get_msg(data, "查询到多个歌曲，请使用ID查询\n" + msg)
             return "多个别名", 200
     else:
-        list.append({"id": name.replace("id", "")})
+        list.append({"id": name.replace("id", "").replace(" ", "")})
 
     for sID, aliases in mai_alias.items():
         if sID == list[0]["id"]:
