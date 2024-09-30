@@ -48,19 +48,14 @@ def mai_search(data):
 
     if "dx" in name:
         type = "dx"
-        name = name.replace("dx", "")
+        name = re.sub(r"\s*dx\s*", "", name)
 
     if "sd" in name or "st" in name or "标准" in name:
         type = "sd"
-        name = name.replace("sd", "").replace("st", "").replace("标准", "")
+        name = re.sub(r"\s*(sd|st|标准)\s*", "", name)
     if "宴" in name:
         type = "宴会場"
-        name = (
-            name.replace("宴会場", "")
-            .replace("宴会场", "")
-            .replace("宴谱", "")
-            .replace("宴", "")
-        )
+        name = re.sub(r"\s*(宴会場|宴会场|宴谱|宴)\s*", "", name)
 
     if "id" not in name:
         # 遍历别名数据，查找匹配的别名
@@ -69,10 +64,10 @@ def mai_search(data):
                 id.append(sID)
     else:
         # 拆分 id1145 与 1145 id
-        id = id.replace("id", "").replace(" ", "")
+        id = re.sub(r"\s*id\s*", "", name)
 
     if type == "宴会場" or len(id[0]) > 5:
-        for i in range(len(id)):
+        for i in range(id):
             if len(id[i]) <= 5:
                 id[i] = id[i].zfill(5)
                 id[i] = "1" + id[i]
@@ -130,12 +125,7 @@ def mai_search(data):
         msg = "查询到多个歌曲，请使用ID查询。可加上“SD”或“DX”区分类型\n"
         for i in range(len(list)):
             msg += (
-                list[i]["id"]
-                + " - "
-                + list[i]["title"]
-                + " ("
-                + list[i]["type"]
-                + ")\n"
+                list[i]["id"] + ". " + list[i]["title"] + " (" + list[i]["type"] + ")\n"
             )
         # 切片删换行
         msg = msg[:-1]
@@ -190,8 +180,8 @@ def mai_random(data):
 
     if nd == 6:
         song = [
-            "PANDORA PARADOXXX  -  ID 1\n难度：Re:Master 15.0  (SD)\n曲师：削除\n谱师：PANDORA PARADOXXX\nBPM：150\n分类：舞萌\n版本：maimai FiNALE",
-            "系",
+            "PANDORA PARADOXXX  -  ID 834\n难度：Re:Master 15.0  (SD)\n曲师：削除\n谱师：PANDORA PARADOXXX\nBPM：150\n分类：舞萌\n版本：maimai FiNALE",
+            "系ぎて - ID 11663\n难度：Re:Master 15.0  (DX)\n曲师：rinto soma\n谱师：to the future\nBPM：88\n分类：舞萌\n版本：maimai Buddies",
         ]
         msg = {
             "type": "text",
@@ -346,21 +336,24 @@ def mai_b50(data):
                 str(t["achievements"]).split(".")[0]
                 + "."
                 + (
-                    ".0000"
+                    "0000"
                     if "." not in str(t["achievements"])
                     else str(t["achievements"]).split(".")[1].ljust(4, "0")
                 )
+                + "%"
             ),
             fill=(0, 0, 0),
             font=ImageFont.truetype("C:/WINDOWS/FONTS/UDDIGIKYOKASHON-B.TTC", 23),
         )
         bg.paste(
-            Image.open("C:/Users/12203/Desktop/" + t["rate"] + ".png").convert("RGBA"),
-            (pos[0] + 125, pos[1] + 17),
+            Image.open("C:/Users/12203/Desktop/" + t["rate"] + ".png")
+            .convert("RGBA")
+            .resize((100, 45), Image.LANCZOS),
+            (pos[0] + 125, pos[1] + 80),
         )
         draw.text(
-            (pos[0] + 125, pos[1] + 41),
-            ("%\n" + str(t["ds"]) + " -> " + str(t["ra"])),
+            (pos[0] + 125, pos[1] + 17),
+            ("\n" + str(t["ds"]) + " -> " + str(t["ra"])),
             fill=(0, 0, 0),
             font=ImageFont.truetype("C:/WINDOWS/FONTS/UDDIGIKYOKASHON-B.TTC", 23),
         )

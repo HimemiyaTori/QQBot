@@ -2,10 +2,8 @@ from __init__ import *
 
 
 def getPic(song):
-    id = str(song["id"]) if "id" in song else str(song["song_id"])
-    # if len(id) == 5:
-    #     id = id[1:]
-    id = id.zfill(5)
+    id = song["id"] if "id" in song else song["song_id"]
+    id = str(id).zfill(5)
     if (
         os.path.exists(
             "C:/Users/12203/Documents/MuMu共享文件夹/Pictures/maiPic/" + id + ".png"
@@ -36,11 +34,12 @@ def getPic(song):
         # caps = webdriver.DesiredCapabilities.EDGE.copy()
         # caps["acceptInsecureCerts"] = True
         # caps["acceptSslCerts"] = True
+
         # 停止页面的不必要加载
         options.page_load_strategy = "eager"
         driver = webdriver.Edge(options=options)
         driver.get("https://maimai.fandom.com/zh/wiki/" + song["title"])
-        image = WebDriverWait(driver, 1).until(
+        image = WebDriverWait(driver, 3).until(
             EC.visibility_of_element_located((By.XPATH, "//div[@class='floatnone']//a"))
         )
         # 获取图片的URL
