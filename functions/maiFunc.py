@@ -66,7 +66,7 @@ def mai_search(data):
         # 拆分 id1145 与 1145 id
         id = re.sub(r"\s*id\s*", "", name)
 
-    if type == "宴会場" or len(id[0]) > 5:
+    if type == "宴会場" or len(id[0]) > 5 if len(id) > 0 else False:
         for i in range(id):
             if len(id[i]) <= 5:
                 id[i] = id[i].zfill(5)
@@ -76,7 +76,7 @@ def mai_search(data):
     for song in songs:
         # id匹配 或 名称匹配
         if song["id"] in id or len(id) == 0 and name in song["title"].casefold():
-            if type == "宴会場" or len(id[0]) > 5:
+            if type == "宴会場" or len(id[0]) > 5 if len(id) > 0 else False:
                 ndInfo = "Utage " + song["level"][0] + "\n"
             else:
                 ndInfo = (
@@ -252,6 +252,21 @@ def mai_random(data):
     return song, 200
 
 
+def add_rounded_corners(image, radius):
+    # 创建一个与图像大小相同的 alpha 遮罩
+    mask = Image.new("L", image.size, 0)
+    draw = ImageDraw.Draw(mask)
+
+    # 画一个圆角矩形
+    left_up_point = (0, 0)
+    right_down_point = (image.size[0], image.size[1])
+    draw.rounded_rectangle([left_up_point, right_down_point], radius, fill=255)
+
+    # 将遮罩应用到图像上
+    image.putalpha(mask)
+    return image
+
+
 def mai_b50(data):
     # mai_update(data)
     # if " " in data["raw_message"]:
@@ -272,6 +287,7 @@ def mai_b50(data):
     #     get_msg(data, "该用户设置了禁止查询哦！")
     #     return "b50", 403
     # userInfo = res.text
+    songs = json.loads(str(mai_data), strict=False)
 
     with open("./test.txt", "r", encoding="utf-8") as f:
         testInfo = json.loads(f.read())
@@ -290,15 +306,17 @@ def mai_b50(data):
     for i in songImgs:
         img = Image.open(i)
         img = img.resize((120, 120), Image.LANCZOS)
+        img = add_rounded_corners(img, 10)  # TODO: 改改角度看看怎么好看
         songImg.append(img)
 
     # 动态计算位置
     position = []
     for index, img in enumerate(songImg):
-        x = 150 + (index % 5) * 300
+        x = 150 + (index % 5) * 330
         y = 500 + (index // 5) * 150
         position.append((x, y))
 
+    cnt = 1
     for img, pos, t in zip(songImg, position, testInfo["charts"]["sd"]):
         bg.paste(img, pos)
         draw.text(
@@ -315,52 +333,181 @@ def mai_b50(data):
                 )
                 + "%\n"
                 + str(t["ds"])
-                + " > "
+                + " -> "
                 + str(t["ra"])
             ),
             fill=(0, 0, 0),
             font=ImageFont.truetype("C:/WINDOWS/FONTS/UDDIGIKYOKASHON-B.TTC", 16),
         )
+        cnt += 1
 
     for img, pos, t in zip(songImg[35:], position[35:], testInfo["charts"]["dx"]):
-        bg.paste(img, pos)
-        draw.text(
-            (pos[0] + 125, pos[1]),
-            t["title"][:20],
-            fill=(0, 0, 0),
-            font=ImageFont.truetype("C:/WINDOWS/FONTS/UDDIGIKYOKASHON-B.TTC", 16),
-        )
-        draw.text(
-            (pos[0] + 125, pos[1] + 17),
-            (
-                str(t["achievements"]).split(".")[0]
-                + "."
-                + (
-                    "0000"
-                    if "." not in str(t["achievements"])
-                    else str(t["achievements"]).split(".")[1].ljust(4, "0")
-                )
-                + "%"
-            ),
-            fill=(0, 0, 0),
-            font=ImageFont.truetype("C:/WINDOWS/FONTS/UDDIGIKYOKASHON-B.TTC", 23),
-        )
+        # 曲绘
         bg.paste(
-            Image.open("C:/Users/12203/Desktop/" + t["rate"] + ".png")
-            .convert("RGBA")
-            .resize((100, 45), Image.LANCZOS),
-            (pos[0] + 125, pos[1] + 80),
-        )
-        draw.text(
-            (pos[0] + 125, pos[1] + 17),
-            ("\n" + str(t["ds"]) + " -> " + str(t["ra"])),
-            fill=(0, 0, 0),
-            font=ImageFont.truetype("C:/WINDOWS/FONTS/UDDIGIKYOKASHON-B.TTC", 23),
+            img,
+            pos,
+            mask=img.split()[3],
         )
 
-    # 白金 250, 240, 111
-    # 金  255, 243, 0
-    #
+        # 排名、等级、类型
+        draw.text(
+            (pos[0], pos[1] - 10),
+            "#" + str(cnt),
+            font=ImageFont.truetype("C:/WINDOWS/FONTS/UDDIGIKYOKASHON-B.TTC", 10),
+        )
+        draw.text(
+            (pos[0] + 15, pos[1] - 10),
+            t["level"],
+            font=ImageFont.truetype("C:/WINDOWS/FONTS/UDDIGIKYOKASHON-B.TTC", 10),
+        )
+        image = Image.open("C:/Users/12203/Desktop/music_" + t["type"] + ".png").resize(
+            (35, 10), Image.LANCZOS
+        )
+        bg.paste(
+            image,
+            (pos[0] + 30 + image.width, pos[1] - 10 + image.height),
+            # mask=img.split()[3],  因为在上面，会越界
+        )
+
+        # 达成率处理
+        font_large = ImageFont.truetype("C:/WINDOWS/FONTS/UDDIGIKYOKASHON-B.TTC", 25)
+        font_small = ImageFont.truetype("C:/WINDOWS/FONTS/UDDIGIKYOKASHON-B.TTC", 16)
+        main_part = str(t["achievements"]).split(".")[0]
+        decimal_part = "." + (
+            "0000"
+            if "." not in str(t["achievements"])
+            else str(t["achievements"]).split(".")[1].ljust(4, "0")
+        )
+        # bbox (left, top, right, bottom)
+        mainBox = draw.textbbox(
+            (pos[0] + img.width + 5, pos[1]), main_part, font=font_large
+        )
+        main_width = mainBox[2] - mainBox[0]
+        main_height = mainBox[3] - mainBox[1]
+        decimalBox = draw.textbbox(
+            (pos[0] + img.width + 5 + main_width, pos[1]), decimal_part, font=font_large
+        )
+        smallBox = draw.textbbox(
+            (pos[0] + img.width + 5, pos[1]), t["title"][:16], font=font_small
+        )
+        decimal_width = decimalBox[2] - decimalBox[0]
+        small_height = smallBox[3] - smallBox[1]
+
+        draw.text(
+            (pos[0] + img.width + 5, pos[1]),
+            t["title"][:16],
+            fill=(0, 0, 0),
+            font=font_small,
+        )
+        draw.text(
+            (pos[0] + img.width + 5, pos[1] + small_height + 4),
+            main_part,
+            fill=(0, 0, 0),
+            font=font_large,
+        )
+        draw.text(
+            (pos[0] + img.width + 5 + main_width, pos[1] + small_height + 4),
+            decimal_part,
+            fill=(0, 0, 0),
+            font=font_large,
+        )
+        draw.text(
+            (
+                pos[0] + img.width + 5 + main_width + decimal_width,
+                pos[1] + small_height + 10,
+            ),
+            "%",
+            fill=(0, 0, 0),
+            font=font_small,
+        )
+        image = Image.open("C:/Users/12203/Desktop/" + t["rate"] + ".png").resize(
+            (80, 31), Image.LANCZOS
+        )
+        bg.paste(
+            image,
+            (
+                pos[0] + img.width + 12 + main_width + decimal_width,
+                pos[1] + small_height + 4,
+            ),
+            mask=image.split()[3],
+        )
+
+        # 定数与rating
+        draw.text(
+            (pos[0] + img.width + 5, pos[1] + small_height + main_height + 6),
+            (str(t["ds"]) + " → " + str(t["ra"])),
+            fill=(0, 0, 0),
+            font=ImageFont.truetype("C:/WINDOWS/FONTS/UDDIGIKYOKASHON-B.TTC", 21),
+        )
+
+        # dx星处理
+        dxScore = 0
+        for s in songs:
+            if int(s["id"]) == int(t["song_id"]):
+                note = s["charts"][t["level_index"]]["notes"]
+                for n in note:
+                    dxScore += n
+                break
+        dxScore = t["dxScore"] / (dxScore * 3)
+        if dxScore >= 0.97:
+            dxScore = 5
+        elif dxScore >= 0.95:
+            dxScore = 4
+        elif dxScore >= 0.93:
+            dxScore = 3
+        elif dxScore >= 0.9:
+            dxScore = 2
+        elif dxScore >= 0.85:
+            dxScore = 1
+        else:
+            dxScore = 0
+        if dxScore != 0:
+            image = Image.open(
+                "C:/Users/12203/Desktop/music_icon_dxstar_detail_"
+                + str(dxScore)
+                + ".png"
+            ).resize((120, 23), Image.LANCZOS)
+
+            # 用贴图
+            bg.paste(
+                image,
+                (pos[0] + 125, pos[1] + 95),
+                mask=image.split()[3],
+            )
+            # 用字符 ✦    5：FFD700   4: FFA500  2: 008000 找不到字体，润了
+            # draw.text(
+            #     (pos[0] + 125, pos[1] + 40),
+            #     "✦" * dxScore,
+            #     fill=(
+            #         "#FFD700"
+            #         if dxScore == 5
+            #         else "#FFA500" if (dxScore == 4 or dxScore == 3) else "#008000"
+            #     ),
+            #     font=ImageFont.truetype("", 23),
+            # )
+
+        # fc与fs
+        if t["fc"] != "":
+            image = Image.open("C:/Users/12203/Desktop/" + t["fc"] + ".png").resize(
+                (30, 34), Image.LANCZOS
+            )
+            bg.paste(
+                image,
+                (pos[0] + 245, pos[1] + 90),
+                mask=image.split()[3],
+            )
+
+        if t["fs"] != "":
+            image = Image.open("C:/Users/12203/Desktop/" + t["fs"] + ".png").resize(
+                (30, 34), Image.LANCZOS
+            )
+            bg.paste(
+                image,
+                (pos[0] + 275, pos[1] + 90),
+                mask=image.split()[3],
+            )
+        cnt += 1
+
     bg.save("C:/Users/12203/Desktop/test111.png")
     return "b50", 200
 
