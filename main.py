@@ -62,7 +62,7 @@ def post_data():
     if data["raw_message"] == "bot退群":
         return bot_exit(data)
 
-    if data["raw_message"] == "b50" or data["raw_message"] == "B50":
+    if data["raw_message"].startswith("b50") or data["raw_message"].startswith("B50"):
         return mai_b50(data)
     if data["raw_message"] == "mai update":
         return mai_update(data)
@@ -95,6 +95,8 @@ def post_data():
         or data["raw_message"].startswith("chu随机歌曲")
     ):
         return chu_random(data)
+    if data["raw_message"].startswith("chu别名"):
+        return chu_alia(data)
 
     return "nothing", 200
 

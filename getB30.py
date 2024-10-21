@@ -4,8 +4,7 @@ from __init__ import *
 def b30(cookie):
     driver = webdriver.Edge()
     driver.get("https://arcaea.lowiro.com/zh/profile/potential")
-    # 首先清除浏览器已有的cookies
-    driver.delete_all_cookies()
+    driver.delete_all_cookies()  # 首先清除浏览器已有的cookies
 
     # 读取cookies为json格式
     if cookie == "":

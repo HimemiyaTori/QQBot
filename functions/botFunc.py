@@ -31,14 +31,14 @@ def get_msg(data, msg):
 
 def bot_exit(data):
     if data["message_type"] == "group":
-        if data["user_id"] == "1220332747":
-            get_msg("哼，那我走了")
+        if data["user_id"] == 1220332747:
+            get_msg(data, "哼，那我走了")
             requests.get(
                 "http://localhost:3939/set_group_leave",
                 params={"group_id": data["group_id"]},
             )
         else:
-            get_msg("哼，你不是我的主人，我才不听你的呢")
+            get_msg(data, "哼，你不是我的主人，我才不听你的呢")
     else:
-        get_msg("憋憋")
+        get_msg(data, "憋憋")
     return "exit", 200

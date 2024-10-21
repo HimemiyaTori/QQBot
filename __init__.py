@@ -15,7 +15,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from debug import debug
 from functions.botFunc import bot_exit, get_msg, post_msg
-from functions.chuFunc import chu_data, chu_random, chu_search, chu_update
+from functions.chuFunc import chu_alia, chu_data, chu_random, chu_search, chu_update
 from functions.getSongPic import getPic
 from functions.maiFunc import (
     mai_alia,
