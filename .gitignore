@@ -1,7 +1,7 @@
-/cookies.txt
-/lib
 /venv
-__pycache__
+/lib
+/cookies.txt
 /test.txt
+__pycache__
 etag.txt
 music_data.txt

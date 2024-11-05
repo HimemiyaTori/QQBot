@@ -2,44 +2,65 @@ from __init__ import *
 
 
 def getPic(song, res="mai"):
-    id = song["id"] if "id" in song else song["song_id"]
-    id = str(id).zfill(5)
-    save_path = (
-        "C:/Users/12203/Documents/MuMu共享文件夹/Pictures/" + res + "Pic/" + id + ".png"
+    id = str(
+        song["id"]
+        if "id" in song
+        else song["song_id"] if "song_id" in song else song["mid"]
     )
-    if res == "mai":
-        if os.path.exists(save_path) == False:
-            print("图片不存在")
-        else:
-            return save_path
+    if res == "mai" and len(id) == 5:
+        id = id[1:]
+    save_path = f"C:/Users/12203/Documents/MuMu共享文件夹/Pictures/{res}Pic/{id}.png"
+    if os.path.exists(save_path) == True:
+        return save_path
 
-        # 先获取 水鱼 曲绘
-        image_url = "https://www.diving-fish.com/covers/" + id + ".png"
-        req = requests.get(image_url)
-        img_data = req.content
-        if req.status_code == 200:
-            print("get - 水鱼")
-            with open(save_path, "wb") as handler:
-                handler.write(img_data)
-            return save_path
-        return getFandom(song, res)
+    print("图片不存在")
+    path = getLx(id, res)
+    if path != None:
+        return path
+
+    # if res == "mai":
+    #     # 获取 水鱼 曲绘
+    #     image_url = "https://www.diving-fish.com/covers/" + id + ".png"
+    #     req = requests.get(image_url)
+    #     img_data = req.content
+    #     if req.status_code == 200:
+    #         print("水鱼get")
+    #         with open(save_path, "wb") as handler:
+    #             handler.write(img_data)
+    #         return save_path
+    return getFandom(song, res)
+
+
+def getLx(id, res):
+    if res == "mai":
+        url = "https://assets2.lxns.net/maimai/jacket/" + id + ".png"
     else:
-        if os.path.exists(save_path) == False:
-            print("图片不存在")
-        else:
-            return save_path
-        return getFandom(song, res)
+        url = "https://assets2.lxns.net/chunithm/jacket/" + id + ".png"
+    # 发送 HTTP 请求获取网页内容
+    response = requests.get(url)
+    response.raise_for_status()  # 检查请求是否成功
+
+    # 获取图片内容
+    img_response = requests.get(url)
+    img_response.raise_for_status()
+
+    # 获取图片文件名
+    img_name = os.path.basename(url)
+
+    # 保存图片
+    save_path = f"C:/Users/12203/Documents/MuMu共享文件夹/Pictures/{res}Pic"
+    img_path = os.path.join(save_path, img_name)
+    with open(img_path, "wb") as img_file:
+        img_file.write(img_response.content)
+
+    print(f"落雪get {img_name}")
+    return img_path
 
 
 def getFandom(song, res):
     # 获取 Fandom 曲绘
     options = webdriver.EdgeOptions()
     options.add_argument("log-level=3")  # 只显示致命错误
-    # options.add_argument("--ignore-certificate-error")
-    # options.add_argument("--ignore-ssl-errors")
-    # caps = webdriver.DesiredCapabilities.EDGE.copy()
-    # caps["acceptInsecureCerts"] = True
-    # caps["acceptSslCerts"] = True
 
     options.page_load_strategy = "eager"  # 停止页面的不必要加载
     driver = webdriver.Edge(options=options)
@@ -48,7 +69,11 @@ def getFandom(song, res):
         "https://"
         + driRes
         + ".fandom.com/zh/wiki/"
-        + song["title"].replace(" ", "_").replace("'", "’")
+        + song["title"]
+        .replace(" ", "_")
+        .replace("'", "’")
+        .replace("[", "［")
+        .replace("]", "］")
     )
     image = WebDriverWait(driver, 3).until(
         EC.visibility_of_element_located((By.XPATH, "//div[@class='floatnone']//a"))
@@ -64,7 +89,11 @@ def getFandom(song, res):
         "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
     }
     img_data = requests.get(image_url, headers=headers).content
-    id = song["id"] if "id" in song else song["song_id"]
+    id = (
+        song["id"]
+        if "id" in song
+        else song["song_id"] if "song_id" in song else song["mid"]
+    )
     id = str(id).zfill(5)
     save_path = (
         "C:/Users/12203/Documents/MuMu共享文件夹/Pictures/" + res + "Pic/" + id + ".png"

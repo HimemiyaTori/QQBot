@@ -51,7 +51,8 @@ def post_data():
                     "3. mai update\n"
                     "4. mai[chu]找歌 <歌名[id114514]>：根据歌名或id查询歌曲信息\n"
                     "5. mai别名 <歌名[id114514]>：根据歌名或id查询歌曲别名\n"
-                    "6. mai[chu]随机 (紫[白][宴]13+)",
+                    "6. mai[chu]随机 (紫[白][宴]13+)\n"
+                    "7. b30[b50] (用户名)：生成成绩图",
                 ),
                 200,
             )
@@ -81,6 +82,8 @@ def post_data():
     ):
         return mai_random(data)
 
+    if data["raw_message"].startswith("b30") or data["raw_message"].startswith("B30"):
+        return chu_b30(data)
     if data["raw_message"] == "chu update":
         return chu_update(data)
     if data["raw_message"].startswith("chu查歌") or data["raw_message"].startswith(

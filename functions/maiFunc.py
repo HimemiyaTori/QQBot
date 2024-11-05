@@ -1,25 +1,22 @@
-import base64
-import io
-
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
-
 from __init__ import *
 
 mai_data = open("maiData/music_data.txt", "r", encoding="utf-8").read()
 mai_alias = json.load(open("maiData/alias.json", "r", encoding="utf-8"))
+asset = "asset/mai/"
 
 
 def mai_update(data):
-    mai_etag = open("maiData/etag.txt", "r").read()
-    etag = {"If-None-Match": mai_etag}
+    etag = open("maiData/etag.txt", "r").read()
+    etag = {"If-None-Match": etag}
     res = requests.get(
-        "https://www.diving-fish.com/api/maimaidxprober/music_data", headers=etag
+        "https://www.diving-fish.com/api/maimaidxprober/music_data",
+        headers=etag,
+        verify=certifi.where(),
     )
     if res.status_code == 200:
         print("mai更新数据")
         with open("maiData/music_data.txt", "w", encoding="utf-8") as file:
-            s = str(res.text)
-            file.write(s)
+            file.write(str(res.text))
         with open("maiData/etag.txt", "w") as file:
             file.write(res.headers["etag"])
         global mai_data
@@ -27,11 +24,15 @@ def mai_update(data):
 
     if data["user_id"] == "1220332747" and data["raw_message"] == "mai update":
         print("mai强制更新数据")
-        res = requests.get("https://www.diving-fish.com/api/maimaidxprober/music_data")
+        res = requests.get(
+            "https://www.diving-fish.com/api/maimaidxprober/music_data",
+            verify=certifi.where(),
+        )
         with open("maiData/music_data.txt", "w", encoding="utf-8") as file:
-            s = str(res.text)
-            file.write(s)
-        name_res = requests.get("https://download.fanyu.site/maimai/alias.json")
+            file.write(str(res.text))
+        name_res = requests.get(
+            "https://download.fanyu.site/maimai/alias.json", verify=certifi.where()
+        )
         with open("maiData/alias.json", "w", encoding="utf-8") as file:
             file.write(name_res.text)
         mai_data = open("maiData/music_data.txt", "r", encoding="utf-8").read()
@@ -42,21 +43,22 @@ def mai_update(data):
 
 def mai_search(data):
     mai_update(data)
-    list = []
-    id = []
-    type = None
+    list = []  # 处理可能找到的多个歌曲
+    id = []  # 储存id（包含别名表里找到的多个id）
+    type = None  # dx sd 宴会場，None说明没找到
     songs = json.loads(str(mai_data), strict=False)
     text = "没找到你想要的歌曲呢"
-    name = data["raw_message"].partition(" ")[2].casefold()
+    name = str(data["raw_message"]).partition(" ")[2].casefold()
 
-    if "dx" in name:
-        type = "dx"
-        name = re.sub(r"\s*dx\s*", "", name)
-
-    if "sd" in name or "st" in name or "标准" in name:
+    if any(sd in name for sd in ["sd", "st", "标准"]):
         type = "sd"
         name = re.sub(r"\s*(sd|st|标准)\s*", "", name)
-    if "宴" in name:
+    elif "dx" in name:
+        type = "dx"
+        name = re.sub(r"\s*dx\s*", "", name)
+    elif "宴" in name and not any(
+        n in name for n in ["珍顿汉", "顿珍汉", "頓珍漢", "之宴", "の宴"]
+    ):  # 专门处理《頓珍漢の宴》
         type = "宴会場"
         name = re.sub(r"\s*(宴会場|宴会场|宴谱|宴)\s*", "", name)
 
@@ -80,42 +82,22 @@ def mai_search(data):
         # id匹配 或 名称匹配
         if song["id"] in id or len(id) == 0 and name in song["title"].casefold():
             if type == "宴会場" or len(id[0]) > 5 if len(id) > 0 else False:
-                nd_info = "Utage " + song["level"][0] + "\n"
+                nd_info = f"Utage {song["level"][0]}\n"
             else:
                 nd_info = (
-                    "Exp "
-                    + str(song["ds"][2])
-                    + "  ("
-                    + song["charts"][2]["charter"]
-                    + ")\nMas "
-                    + str(song["ds"][3])
-                    + "  ("
-                    + song["charts"][3]["charter"]
-                    + ")\n"
+                    f"Exp {song["ds"][2]}  ({song["charts"][2]["charter"]})\n"
+                    f"Mas {song["ds"][3]}  ({song["charts"][3]["charter"]})"
                 )
             if len(song["ds"]) == 5:
-                nd_info += (
-                    "ReMas "
-                    + str(song["ds"][4])
-                    + "  ("
-                    + song["charts"][4]["charter"]
-                    + ")\n"
-                )
+                nd_info += f"\nReMas {song['ds'][4]}  ({song['charts'][4]['charter']})"
             text = (
-                song["title"]
-                + "  -  ID "
-                + str(song["id"])
-                + "\n"
-                + nd_info
-                + "作者："
-                + song["basic_info"]["artist"]
-                + "\nBPM："
-                + str(song["basic_info"]["bpm"])
-                + "\n分类："
-                + song["basic_info"]["genre"]
-                + "\n版本："
-                + song["basic_info"]["from"]
+                f"{song['title']}  -  ID {song['id']}\n{nd_info}\n"
+                f"作者：{song['basic_info']['artist']}\n"
+                f"BPM：{song['basic_info']['bpm']}\n"
+                f"分类：{song['basic_info']['genre']}\n"
+                f"版本：{song['basic_info']['from']}"
             )
+            debug.print(text)
             list.append(song)
             if (
                 len(id) == 1
@@ -127,19 +109,10 @@ def mai_search(data):
     if len(list) > 1:
         msg = "查询到多个歌曲，请使用ID查询。可加上“SD”或“DX”区分类型\n"
         for i in range(len(list)):
-            msg += (
-                str(list[i]["id"])
-                + ". "
-                + list[i]["title"]
-                + " ("
-                + list[i]["type"]
-                + ")\n"
-            )
+            msg += f"{list[i]['id']}. {list[i]['title']} ({list[i]['type']})\n"
         msg = msg[:-1]  # 切片删换行
         get_msg(data, msg)
         return "多个歌曲", 200
-
-    debug.print(text)
 
     img = ""
     if len(list) > 0:
@@ -147,9 +120,7 @@ def mai_search(data):
         img = {
             "type": "image",
             "data": {
-                "file": "file:///sdcard/Pictures/maiPic/"
-                + str(list[0]["id"]).zfill(5)
-                + ".png"
+                "file": f"file:///sdcard/Pictures/maiPic/{str(list[0]["id"])}.png"
             },
         }
     msg = {
@@ -162,13 +133,13 @@ def mai_search(data):
 
 
 def mai_random(data):
-    diffNum = random.randint(2, 4)
-    diffName = ["Utage ", "Advanced ", "Expert ", "Master ", "Re:Master "]
-    nd = None
-    diff = ["12", "12+", "13", "13+", "14", "14+", "15"]
+    level_num = random.randint(2, 4)  # 下面name的索引
+    level_name = ["Utage ", "Advanced ", "Expert ", "Master ", "Re:Master "]
+    nd = -1  # 难度。处理指定等级，若存在处理后为下面level的索引
+    level = ["12", "12+", "13", "13+", "14", "14+", "15"]
 
-    info = data["raw_message"].partition(" ")
     # 判断后面有无限定条件：等级、难度
+    info = str(data["raw_message"]).partition(" ")
     if info[0] != data["raw_message"]:
         info = info[2]
         if "1" in info:
@@ -177,20 +148,31 @@ def mai_random(data):
             if "+" in info:
                 nd += 1
             if num >= 4:
-                diffNum = random.randint(3, 4)
+                level_num = random.randint(3, 4)
         if "红" in info:
-            diffNum = 2
+            level_num = 2
         if "紫" in info:
-            diffNum = 3
+            level_num = 3
         if "白" in info:
-            diffNum = 4
+            level_num = 4
         if "宴" in info:
-            diffNum = 0
+            level_num = 0
 
-    if nd == 6:
+    # 直接处理15
+    if nd >= 6:
         song = [
-            "PANDORA PARADOXXX  -  ID 834\n难度：Re:Master 15.0  (SD)\n曲师：削除\n谱师：PANDORA PARADOXXX\nBPM：150\n分类：舞萌\n版本：maimai FiNALE",
-            "系ぎて - ID 11663\n难度：Re:Master 15.0  (DX)\n曲师：rinto soma\n谱师：to the future\nBPM：88\n分类：舞萌\n版本：maimai Buddies",
+            "PANDORA PARADOXXX  -  ID 834\n"
+            "难度：Re:Master 15.0  (SD)\n"
+            "曲师：削除\n"
+            "谱师：PANDORA PARADOXXX\n"
+            "BPM：150\n"
+            "分类：舞萌\n"
+            "版本：maimai FiNALE",
+            "系ぎて - ID 11663\n"
+            "难度：Re:Master 15.0  (DX)\n"
+            "曲师：rinto soma\n"
+            "谱师：to the future\n"
+            "BPM：88\n分类：舞萌\n版本：maimai Buddies",
         ]
         msg = {
             "type": "text",
@@ -201,106 +183,73 @@ def mai_random(data):
 
     mai_update(data)
     songs = json.loads(str(mai_data), strict=False)
+    song = random.choice(songs)
 
-    while True:
-        song = random.choice(songs)
-        debug.print(song)
+    while level_num == 0 or level_num == 4 or nd != -1:
         # 白谱判断
-        if diffNum == 4:
-            if len(song["ds"]) == 5:
-                break
-            else:
-                continue
+        if level_num == 4 and len(song["ds"]) == 5:
+            break
         # 宴谱判断
-        elif diffNum == 0 and song["basic_info"]["genre"] == "宴会場":
+        elif level_num == 0 and song["basic_info"]["genre"] == "宴会場":
             break
         # 难度判断
-        elif nd != None and song["level"][diffNum] == diff[nd]:
+        if song["level"][level_num] == level[nd]:
             break
-        else:
-            break
+        debug.print(song)
+        song = random.choice(songs)
 
-    if diffNum == 0:
-        ndInfo = diffName[diffNum] + song["level"][diffNum]
+    if level_num == 0:
+        ndInfo = level_name[level_num] + song["level"][level_num]
     else:
-        ndInfo = (
-            diffName[diffNum] + str(song["ds"][diffNum]) + "  (" + song["type"] + ")"
-        )
+        ndInfo = f"{level_name[level_num]}{song['ds'][level_num]}  ({song['type']})"
 
-    img = ""
     text = (
-        song["title"]
-        + "  -  ID "
-        + str(song["id"])
-        + "\n"
-        + ndInfo
-        + "\n作者："
-        + song["basic_info"]["artist"]
-        + "\n谱师："
-        + song["charts"][diffNum]["charter"]
-        + "\nBPM："
-        + str(song["basic_info"]["bpm"])
-        + "\n分类："
-        + song["basic_info"]["genre"]
-        + "\n版本："
-        + song["basic_info"]["from"]
+        f"{song['title']}  -  ID {song['id']}\n{ndInfo}\n"
+        f"作者：{song['basic_info']['artist']}\n"
+        f"谱师：{song['charts'][level_num]['charter']}\n"
+        f"BPM：{song['basic_info']['bpm']}\n"
+        f"分类：{song['basic_info']['genre']}\n"
+        f"版本：{song['basic_info']['from']}"
     )
-
-    getPic(song)
-    img = {
-        "type": "image",
-        "data": {"file": "file:///sdcard/Pictures/maiPic/" + str(song["id"]) + ".jpg"},
-    }
-
     msg = {
         "type": "text",
         "data": {"text": text},
+    }
+    getPic(song)
+    img = {
+        "type": "image",
+        "data": {"file": f"file:///sdcard/Pictures/maiPic/{song["id"]}.png"},
     }
     post_msg(data, [img, msg])
 
     return song, 200
 
 
-def add_rounded_corners(img, radius):
-    # 创建一个与图像大小相同的 alpha 遮罩
-    mask = Image.new("L", img.size, 0)
-    draw = ImageDraw.Draw(mask)
-
-    # 画圆角矩形
-    draw.rounded_rectangle([(0, 0), img.size], radius, fill=255)
-
-    # 将遮罩应用到图像上
-    img.putalpha(mask)
-    return img
-
-
 def cut_title(title, len):
-    text = ""
+    txt = ""  # 暂存文字
     is_cut = False
     draw = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
     for word in title:
-        title_bbox = draw.textbbox(
+        box = draw.textbbox(
             (0, 0),
-            text.replace("°", ""),
+            txt.replace("°", ""),
             font=ImageFont.truetype("C:/WINDOWS/FONTS/UDDIGIKYOKASHON-B.TTC", 16),
         )
-        title_width = title_bbox[2] - title_bbox[0]
-        text += word
-        if title_width > len:
+        width = box[2] - box[0]
+        txt += word
+        if width > len:
             is_cut = True
             break
-    return text, is_cut
+    return txt, is_cut
 
 
-def txt_faded(txt, text_width):
-    text_width += 13  # 文字切掉的有点多，补正一下
+def txt_faded(txt, width):
+    width += 13  # 文字切掉的有点多，补正一下
 
-    # 创建一个单独的图层用于绘制文字
-    text_layer = Image.new("RGBA", (text_width, 18), (255, 255, 255, 0))  # 完全透明背景
-    text_draw = ImageDraw.Draw(text_layer)
-
-    # 在文字图层上绘制文字
-    text_draw.text(
+    # 创建一个单独的图层绘制文字
+    layer = Image.new("RGBA", (width, 18), (255, 255, 255, 0))  # 完全透明背景
+    draw = ImageDraw.Draw(layer)
+    draw.text(
         (0, 0),
         txt,
         font=ImageFont.truetype("C:/WINDOWS/FONTS/UDDIGIKYOKASHON-B.TTC", 16),
@@ -308,26 +257,27 @@ def txt_faded(txt, text_width):
     )
 
     # 创建渐变蒙版，控制右侧逐渐透明
-    gradient = Image.new("L", text_layer.size, 255)  # 单通道（L模式），全白
-    for x in range(text_width):
+    gradient = Image.new("L", layer.size, 255)  # 单通道（L），全白
+    for x in range(width):
         transparency = int(
-            max(0, 255 - (x - text_width + 20) * 12.75)
+            max(0, 255 - (x - width + 20) * 12.75)
         )  # 渐变从最后20px开始，最后的因子由255/x得到
         for y in range(18):
             gradient.putpixel((x, y), transparency)
 
     # 将渐变蒙版应用到文字图层
-    text_with_fade = Image.composite(
-        text_layer,
-        Image.new("RGBA", text_layer.size, (255, 255, 255, 0)),
+    fade = Image.composite(
+        layer,
+        Image.new("RGBA", layer.size, (255, 255, 255, 0)),
         gradient,
     )
 
-    return text_with_fade
+    return fade
 
 
 def mai_b50(data):
     mai_update(data)
+    name = None
     if data["raw_message"] == "b50" or data["raw_message"] == "B50":
         res = requests.post(
             "https://www.diving-fish.com/api/maimaidxprober/query/player",
@@ -342,78 +292,82 @@ def mai_b50(data):
     else:
         return "nothing", 200
     if res.status_code == 400:
-        get_msg(data, "用户名错误，注意是水鱼网站的用户名，不是游戏的ID哦！")
+        if name != None:
+            get_msg(data, "用户名错误，注意是水鱼网站的用户名，不是游戏ID哦！")
+        else:
+            get_msg(data, "你还没有绑定QQ号呢，请前往水鱼网站绑定或使用用户名查询。")
         return "b50", 400
     if res.status_code == 403:
         get_msg(data, "该用户设置了禁止查询哦！")
         return "b50", 403
+    get_msg(data, "生成B50中，请稍等")
     user_info = json.loads(res.text)
     songs = json.loads(str(mai_data), strict=False)
     reply_msg = {"type": "text", "data": {"text": ""}}
 
     margin_x = 200
-    font_xxl = ImageFont.truetype("C:/WINDOWS/FONTS/UDDIGIKYOKASHON-B.TTC", 50)
-    font_xl = ImageFont.truetype("C:/WINDOWS/FONTS/UDDIGIKYOKASHON-B.TTC", 40)
-    font_large = ImageFont.truetype("C:/WINDOWS/FONTS/UDDIGIKYOKASHON-B.TTC", 25)
-    font_small = ImageFont.truetype("C:/WINDOWS/FONTS/UDDIGIKYOKASHON-B.TTC", 16)
-    font_xs = ImageFont.truetype("C:/WINDOWS/FONTS/UDDIGIKYOKASHON-B.TTC", 13)
+    font = "C:/WINDOWS/FONTS/UDDIGIKYOKASHON-B.TTC"
+    font_xxl = ImageFont.truetype(font, 50)
+    font_xl = ImageFont.truetype(font, 40)
+    font_large = ImageFont.truetype(font, 25)
+    font_small = ImageFont.truetype(font, 16)
+    font_xs = ImageFont.truetype(font, 13)
 
-    bg = (
-        Image.open("C:/Users/12203/Desktop/bg/119614191_p0.png")
-        .resize([2100, 2100])
-        .convert("RGBA")
-    )
+    bg = Image.open("C:/Users/12203/Desktop/bg/121522032_p0.jpg")
+    if bg.width != bg.height:
+        len = min(bg.width, bg.height)
+        bg = bg.crop((0, 0, len, len))
+    bg = bg.resize([2100, 2100], Image.LANCZOS).convert("RGBA")
+    bg = bg.filter(ImageFilter.GaussianBlur(5))
     draw = ImageDraw.Draw(bg)
 
     # 用户名与rt
     if user_info["rating"] < 1000:
-        rt_img = Image.open("C:/Users/12203/Desktop/rating_base_normal.png")
+        rt_img = Image.open(asset + "rating_base_normal.png")
     elif user_info["rating"] < 2000:
-        rt_img = Image.open("C:/Users/12203/Desktop/rating_base_blue.png")
+        rt_img = Image.open(asset + "rating_base_blue.png")
     elif user_info["rating"] < 4000:
-        rt_img = Image.open("C:/Users/12203/Desktop/rating_base_green.png")
-    elif user_info["rating"] < 7000:  # 找不到黄色的，先用红的
-        rt_img = Image.open("C:/Users/12203/Desktop/rating_base_red.png")
+        rt_img = Image.open(asset + "rating_base_green.png")
+    elif user_info["rating"] < 7000:  # 找不到黄色，先用红的
+        rt_img = Image.open(asset + "rating_base_red.png")
     elif user_info["rating"] < 10000:
-        rt_img = Image.open("C:/Users/12203/Desktop/rating_base_red.png")
+        rt_img = Image.open(asset + "rating_base_red.png")
     elif user_info["rating"] < 12000:
-        rt_img = Image.open("C:/Users/12203/Desktop/rating_base_purple.png")
+        rt_img = Image.open(asset + "rating_base_purple.png")
     elif user_info["rating"] < 13000:
-        rt_img = Image.open("C:/Users/12203/Desktop/rating_base_bronze.png")
+        rt_img = Image.open(asset + "rating_base_bronze.png")
     elif user_info["rating"] < 14000:
-        rt_img = Image.open("C:/Users/12203/Desktop/rating_base_silver.png")
+        rt_img = Image.open(asset + "rating_base_silver.png")
     elif user_info["rating"] < 14500:
-        rt_img = Image.open("C:/Users/12203/Desktop/rating_base_gold.png")
+        rt_img = Image.open(asset + "rating_base_gold.png")
     elif user_info["rating"] < 15000:
-        rt_img = Image.open("C:/Users/12203/Desktop/rating_base_platinum.png")
+        rt_img = Image.open(asset + "rating_base_platinum.png")
     else:
-        rt_img = Image.open("C:/Users/12203/Desktop/rating_base_rainbow.png")
+        rt_img = Image.open(asset + "rating_base_rainbow.png")
 
     name_bg = (
-        Image.open("C:/Users/12203/Desktop/deco27_enhanced.jpg")
-        .resize([600, 170], Image.LANCZOS)
+        Image.open("asset/256001.png")
+        .resize([1055, 170], Image.LANCZOS)
         .convert("RGBA")
     )
-    outline = Image.new("RGBA", (name_bg.width + 3, name_bg.height + 3), (0, 0, 0, 0))
-    outline_draw = ImageDraw.Draw(outline)
-    outline.paste(name_bg, (2, 2))
-    outline_draw.rectangle(
-        [(0, 0), (name_bg.width + 3, name_bg.height + 3)],
-        outline=(255, 0, 255, 255),  # 粉紫
-        width=3,
-    )
-    name_bg = outline.filter(ImageFilter.GaussianBlur(2))
+    # 生成圆角alpha遮罩
+    rounded_mask = Image.new("L", name_bg.size, 0)
+    rounded_draw = ImageDraw.Draw(rounded_mask)
+    rounded_draw.rounded_rectangle([(0, 0), name_bg.size], 6, fill=255)  # 圆角半径3
+    name_bg.putalpha(rounded_mask)
     bg.paste(
         name_bg,
         (margin_x, 30),
+        name_bg,
     )
     draw.text(
-        (margin_x + 35, 50),
+        (margin_x + 180, 50),
         user_info["username"],
+        "black",
         font=font_xxl,
     )
 
-    rt_pos = (margin_x + 20, 100)
+    rt_pos = (margin_x + 165, 110)
     bg.paste(
         rt_img,
         rt_pos,
@@ -433,7 +387,7 @@ def mai_b50(data):
     # logo
     logo_pos = (margin_x + 1350, 0)
     # size 396x329
-    logo = Image.open("C:/Users/12203/Desktop/maimai_DX_2024.png").resize((356, 296))
+    logo = Image.open("asset/maimai_DX_2024.png").resize((356, 296))
     bg.paste(
         logo,
         logo_pos,
@@ -441,45 +395,45 @@ def mai_b50(data):
     )
 
     # 分数统计 & 曲绘准备
-    sd_tot, sd_avg, dx_tot, dx_avg = 0, 0, 0, 0
+    b35_tot = b15_tot = b35_lv = b15_lv = 0
     img_paths = []
     for s in user_info["charts"]["sd"]:
         img_paths.append(getPic(s))
-        sd_tot += s["ra"]
-        sd_avg += s["ds"]
+        b35_tot += s["ra"]
+        b35_lv += s["ds"]
     for s in user_info["charts"]["dx"]:
         img_paths.append(getPic(s))
-        dx_tot += s["ra"]
-        dx_avg += s["ds"]
+        b15_tot += s["ra"]
+        b15_lv += s["ds"]
     song_imgs = []
     for i in img_paths:
         img = Image.open(i).resize((120, 120), Image.LANCZOS)
-        img = add_rounded_corners(img, 15)
+        # 生成圆角alpha遮罩
+        rounded_mask = Image.new("L", img.size, 0)
+        rounded_draw = ImageDraw.Draw(rounded_mask)
+        rounded_draw.rounded_rectangle([(0, 0), img.size], 15, fill=255)  # 圆角半径15
+        img.putalpha(rounded_mask)
         song_imgs.append(img)
 
-    sd_avg /= 35
-    dx_avg /= 15
-    sd_avg_score = sd_tot / 35
-    dx_avg_score = dx_tot / 15
-    sd_avg = f"{sd_avg:.2f}"
-    dx_avg = f"{dx_avg:.2f}"
-    sd_avg_score = f"{sd_avg_score:.2f}"
-    dx_avg_score = f"{dx_avg_score:.2f}"
+    b35_lv = f"{b35_lv/35:.2f}"
+    b15_lv = f"{b15_lv/15:.2f}"
+    b35_avg = f"{b35_tot/35:.2f}"
+    b15_avg = f"{b15_tot/15:.2f}"
 
-    b35_pos = (margin_x, 220)
+    b35_pos = (margin_x, 250)
     b15_pos = 0
 
     # 计算歌曲位置
     position = []
     for index, img in enumerate(song_imgs):
         x = margin_x + (index % 5) * 340
-        y = 300 + (index // 5) * 160
+        y = 330 + (index // 5) * 160
         if index > 34:
             y += 150
             b15_pos = (x, y - 80) if b15_pos == 0 else b15_pos
         position.append((x, y))
 
-    best_bg = Image.open("C:/Users/12203/Desktop/bg_b30.png")
+    best_bg = Image.open("asset/bg_b50.png")
     bg.paste(
         best_bg,
         b35_pos,
@@ -490,28 +444,28 @@ def mai_b50(data):
         b15_pos,
         best_bg,
     )
-    b15_pos = (b15_pos[0] + 18, b15_pos[1] + 5)
     b35_pos = (b35_pos[0] + 18, b35_pos[1] + 5)
+    b15_pos = (b15_pos[0] + 18, b15_pos[1] + 5)
     draw.text(
         b35_pos,
-        f"B35 - {sd_tot}",
+        f"B35 - {b35_tot}",
         font=font_xxl,
     )  # 最长宽度（5位数）：275
     draw.text(
         b15_pos,
-        f"B15 - {dx_tot}",
+        f"B15 - {b15_tot}",
         font=font_xxl,
     )
     b35_pos = (b35_pos[0] + 305, b35_pos[1] + 4)
     b15_pos = (b15_pos[0] + 305, b15_pos[1] + 4)
     draw.text(
         b35_pos,
-        f"Avg. {sd_avg_score} / {sd_avg}",
+        f"Avg. {b35_avg} / {b35_lv}",
         font=font_xl,
     )
     draw.text(
         b15_pos,
-        f"Avg. {dx_avg_score} / {dx_avg}",
+        f"Avg. {b15_avg} / {b15_lv}",
         font=font_xl,
     )
 
@@ -522,11 +476,7 @@ def mai_b50(data):
         margin_left = 10
         margin_top = 10
         # 背景
-        color_bg = Image.open(
-            "C:/Users/12203/Desktop/bg_"
-            + str(info["level_label"]).replace(":", "")
-            + ".png"
-        )
+        color_bg = Image.open(f"asset/bg_{info['level_label'].replace(':', '')}.png")
         bg.paste(
             color_bg,
             pos,
@@ -558,9 +508,7 @@ def mai_b50(data):
             font=font_small,
         )
         # 原size 113x32
-        image = Image.open(
-            "C:/Users/12203/Desktop/music_" + info["type"] + ".png"
-        ).resize((60, 17))
+        image = Image.open(f"{asset}music_{info["type"]}.png").resize((60, 17))
         bg.paste(
             image,
             (pos[0] + navi_margin + 55, pos[1] + margin_top - 1),
@@ -657,8 +605,7 @@ def mai_b50(data):
             "text": main_part,
             "font": font_large,
         }
-        # bbox (left, top, right, bottom)
-        main_box = draw.textbbox(**main_param)
+        main_box = draw.textbbox(**main_param)  # bbox (left, top, right, bottom)
         main_width = main_box[2] - main_box[0]
         main_height = main_box[3] - main_box[1]
         decimal_param = {
@@ -681,9 +628,7 @@ def mai_b50(data):
             font_small,
         )
         # 原size 200x89
-        rate_image = Image.open(
-            "C:/Users/12203/Desktop/" + info["rate"] + ".png"
-        ).resize((80, 31))
+        rate_image = Image.open(asset + info["rate"] + ".png").resize((80, 31))
         bg.paste(
             rate_image,
             (pos[0] + pic_width - 3, pos[1] + 103),
@@ -694,8 +639,8 @@ def mai_b50(data):
         # 定数与rating
         ds_param = {
             "xy": (pos[0] + pic_width, pos[1] + tot_height),
-            "text": (str(info["ds"]) + " → " + str(info["ra"])),
-            "font": ImageFont.truetype("C:/WINDOWS/FONTS/UDDIGIKYOKASHON-B.TTC", 21),
+            "text": f"{info['ds']} → {info['ra']}",
+            "font": ImageFont.truetype(font, 21),
         }
         draw.text(**ds_param)
         ds_box = draw.textbbox(**ds_param)
@@ -726,9 +671,9 @@ def mai_b50(data):
                 dxScore = 0
             if dxScore != 0:
                 # 原size 70x70
-                image = Image.open(
-                    "C:/Users/12203/Desktop/music_icon_dxstar_" + str(dxScore) + ".png"
-                ).resize((30, 30))
+                image = Image.open(f"{asset}music_icon_dxstar_{dxScore}.png").resize(
+                    (30, 30)
+                )
 
                 bg.paste(
                     image,
@@ -742,16 +687,15 @@ def mai_b50(data):
             reply_msg = {
                 "type": "text",
                 "data": {
-                    "text": "发现到你设置了“对非网页查询的成绩使用掩码”，若你想获取更详细的成绩与dx分，请在查分网站的个人资料中取消设置。"
+                    "text": "发现到你设置了“对非网页查询的成绩使用掩码”，"
+                    "若你想获取更详细的成绩与dx分，请在查分网站的个人资料中取消设置。"
                 },
             }
 
         # fc与fs
         if info["fc"] != "":
             # 原size 42x47
-            image = Image.open("C:/Users/12203/Desktop/" + info["fc"] + ".png").resize(
-                (30, 34)
-            )
+            image = Image.open(asset + info["fc"] + ".png").resize((30, 34))
             bg.paste(
                 image,
                 (pos[0] + pic_width + rate_image.size[0] + 35, pos[1] + tot_height),
@@ -759,9 +703,7 @@ def mai_b50(data):
             )
 
         if info["fs"] != "":
-            image = Image.open("C:/Users/12203/Desktop/" + info["fs"] + ".png").resize(
-                (30, 34)
-            )
+            image = Image.open(asset + info["fs"] + ".png").resize((30, 34))
             bg.paste(
                 image,
                 (
@@ -823,7 +765,7 @@ def mai_alia(data):
                 if song["id"] in list["id"]:
                     list.append(song)
             for l in list:
-                msg += "ID " + l["id"] + " - " + l["title"] + " (" + l["type"] + ")\n"
+                msg += f"ID {l["id"]} - {l["title"]} ({l["type"]})\n"
             # 切片删换行
             msg = msg[:-1]
             get_msg(data, "查询到多个歌曲，请使用ID查询\n" + msg)
@@ -832,7 +774,7 @@ def mai_alia(data):
         for a in alia:
             msg += a + "，"
         msg = msg[:-1]
-        get_msg(data, "ID为" + str(list[0]["id"]) + "的歌曲有以下别名：\n" + msg)
+        get_msg(data, f"ID为{list[0]["id"]}的歌曲有以下别名：\n{msg}")
     else:
         list.append({"id": re.sub(r"\s*id\s*", "", name)})
 
@@ -841,7 +783,7 @@ def mai_alia(data):
                 for a in aliases:
                     msg += a + "，"
                 msg = msg[:-1]
-                get_msg(data, "ID为" + sID + "的歌曲有以下别名：\n" + msg)
+                get_msg(data, f"ID为{sID}的歌曲有以下别名：\n{msg}")
                 break
 
     return "别名", 200
