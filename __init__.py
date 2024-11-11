@@ -19,7 +19,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 from debug import debug
-from functions.botFunc import bot_exit, get_msg, post_msg
+from functions.botFunc import bilibili_search, bot_exit, get_msg, post_msg
 from functions.chuFunc import (
     chu_alia,
     chu_b30,

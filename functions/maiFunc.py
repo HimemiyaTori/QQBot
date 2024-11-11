@@ -188,7 +188,8 @@ def mai_random(data):
     while level_num == 0 or level_num == 4 or nd != -1:
         # 白谱判断
         if level_num == 4 and len(song["ds"]) == 5:
-            break
+            if nd == -1:
+                break
         # 宴谱判断
         elif level_num == 0 and song["basic_info"]["genre"] == "宴会場":
             break

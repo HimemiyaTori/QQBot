@@ -56,6 +56,11 @@ def post_data():
                 ),
                 200,
             )
+        data["raw_message"] = (
+            str(data["raw_message"])[:2].lower() + str(data["raw_message"])[2:]
+        )
+        if data["raw_message"].startswith("bv") or data["raw_message"].startswith("av"):
+            return bilibili_search(data)
 
     if data["raw_message"].startswith("arc b30"):
         return arc_b30(data)

@@ -40,7 +40,7 @@ def chu_search(data):
     songs = json.loads(str(chu_data), strict=False)
     img = ""
     text = "没找到你想要的歌曲呢"
-    name = data["raw_message"].partition(" ")[2].casefold()
+    name = str(data["raw_message"]).partition(" ")[2].lower()
 
     if "id" not in name:
         # 遍历别名数据，查找匹配的别名
@@ -55,40 +55,19 @@ def chu_search(data):
 
     for song in songs:
         # id匹配 或 名称匹配
-        if song["id"] in id or len(id) == 0 and name in song["title"].casefold():
+        if song["id"] in id or len(id) == 0 and name in str(song["title"]).lower():
             nd = (
-                "Exp "
-                + str(song["ds"][2])
-                + "  ("
-                + str(song["charts"][2]["charter"])
-                + ")\nMas "
-                + str(song["ds"][3])
-                + "  ("
-                + str(song["charts"][3]["charter"])
-                + ")"
+                f"Exp {song["ds"][2]}  ({song["charts"][2]["charter"]})\n"
+                f"Mas {song["ds"][3]}  ({song["charts"][3]["charter"]})"
             )
             if len(song["ds"]) == 5:
-                nd += (
-                    "\nUlt "
-                    + str(song["ds"][4])
-                    + "  ("
-                    + str(song["charts"][4]["charter"])
-                    + ")"
-                )
+                nd += f"\nUlt {song["ds"][4]}  ({song["charts"][4]["charter"]})"
             text = (
-                str(song["title"])
-                + "  -  ID "
-                + str(song["id"])
-                + "\n"
-                + nd
-                + "\n作者："
-                + str(song["basic_info"]["artist"])
-                + "\nBPM："
-                + str(song["basic_info"]["bpm"])
-                + "\n分类："
-                + song["basic_info"]["genre"]
-                + "\n版本："
-                + song["basic_info"]["from"]
+                f"{song["title"]}  -  ID {song["id"]}\n{nd}\n"
+                f"作者：{song["basic_info"]["artist"]}\n"
+                f"BPM：{song["basic_info"]["bpm"]}\n"
+                f"分类：{song["basic_info"]["genre"]}\n"
+                f"版本：{song["basic_info"]["from"]}"
             )
             list.append(song)
             break
@@ -98,11 +77,7 @@ def chu_search(data):
         getPic(list[0], "chu")
         img = {
             "type": "image",
-            "data": {
-                "file": "file:///sdcard/Pictures/chuPic/"
-                + str(list[0]["id"]).zfill(5)
-                + ".png"
-            },
+            "data": {"file": f"file:///sdcard/Pictures/chuPic/{list[0]["id"]}.png"},
         }
     msg = {
         "type": "text",
@@ -114,12 +89,13 @@ def chu_search(data):
 
 
 def chu_random(data):
-    diffNum = random.randint(2, 4)
+    diffNum = random.randint(2, 4)  # 下面name的索引
     diffName = ["Basic ", "Advanced ", "Expert ", "Master ", "Ultima ", "Wrold's End "]
-    nd = -1
+    nd = -1  # 难度。处理指定等级，若存在处理后为下面level的索引
     diff = ["12", "12+", "13", "13+", "14", "14+", "15"]
 
-    info = data["raw_message"].partition(" ")
+    # 判断后面有无限定条件：等级、难度
+    info = str(data["raw_message"]).partition(" ")
     if info[0] != data["raw_message"]:
         info = info[2]
         if "1" in info:
@@ -139,66 +115,59 @@ def chu_random(data):
             diffNum = 4
         if (
             "彩" in info
-            or "worldsend" in info.replace("'", "").replace(" ", "").casefold()
+            or "worldsend" in info.replace("'", "").replace(" ", "").lower()
         ):
             diffNum = 5
 
     chu_update(data)
     songs = json.loads(str(chu_data), strict=False)
     song = random.choice(songs)
-
-    # 黑谱判断
-    if diffNum == 4:
-        while True:
-            if len(song["ds"]) == 5:
-                break
-            song = random.choice(songs)
-
-    # 彩谱判断
-    if diffNum == 5:
-        while True:
-            if len(song["ds"]) == 6:
-                break
-            song = random.choice(songs)
-
     # 难度判断
-    if nd != -1 and diffNum != 5:
-        while True:
-            if diffNum == 4 and len(song["ds"]) != 5:
-                song = random.choice(songs)
-                continue
-            if len(song["ds"]) == 6:
-                song = random.choice(songs)
-                continue
-            if song["level"][diffNum] == diff[nd]:
-                break
+    while nd != -1 and diffNum != 5:
+        if diffNum == 4 and len(song["ds"]) != 5:
             song = random.choice(songs)
+            continue
+        if len(song["ds"]) == 6:
+            song = random.choice(songs)
+            continue
+        if song["level"][diffNum] == diff[nd]:
+            break
+        song = random.choice(songs)
+    # 黑谱判断
+    while diffNum == 4:
+        if len(song["ds"]) == 5:
+            break
+        song = random.choice(songs)
+    # 彩谱判断
+    while diffNum == 5:
+        if len(song["ds"]) == 6:
+            break
+        song = random.choice(songs)
 
     ndInfo = diffName[diffNum]
     if diffNum != 5:
         ndInfo += str(song["ds"][diffNum])
 
+    getPic(song, "chu")
+    img = {
+        "type": "image",
+        "data": {"file": f"file:///sdcard/Pictures/chuPic/{song["id"]}.png"},
+    }
+
     song = (
-        str(song["title"])
-        + "\n难度："
-        + ndInfo
-        + "\n作者："
-        + str(song["basic_info"]["artist"])
-        + "\n谱师："
-        + str(song["charts"][diffNum]["charter"])
-        + "\nBPM："
-        + str(song["basic_info"]["bpm"])
-        + "\n分类："
-        + str(song["basic_info"]["genre"])
-        + "\n版本："
-        + str(song["basic_info"]["from"])
+        f"{song["title"]}  -  ID {song["id"]}\n"
+        f"难度：{ndInfo} ({song["charts"][diffNum]["charter"]})\n"
+        f"作者：{song["basic_info"]["artist"]}\n"
+        f"BPM：{song["basic_info"]["bpm"]}\n"
+        f"分类：{song["basic_info"]["genre"]}\n"
+        f"版本：{song["basic_info"]["from"]}"
     )
 
     msg = {
         "type": "text",
         "data": {"text": song},
     }
-    post_msg(data, msg)
+    post_msg(data, [img, msg])
 
     return song, 200
 
@@ -208,7 +177,7 @@ def chu_alia(data):
     list = []
     alia = []
     songs = json.loads(str(chu_data), strict=False)
-    name = data["raw_message"].partition(" ")[2].casefold()
+    name = str(data["raw_message"]).partition(" ")[2].lower()
 
     if "id" not in name:
         # 遍历别名数据，查找匹配的别名
