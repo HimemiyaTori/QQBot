@@ -75,7 +75,7 @@ def bilibili_search(data):
         if res["code"] != 0:
             return get_msg(data, "视频不存在呢"), 200
 
-        pic = {"type": "image", "data": {"file": "http://" + res["data"]["pic"][6:]}}
+        pic = {"type": "image", "data": {"file": res["data"]["pic"]}}
         localtime = time.localtime(res["data"]["pubdate"])
         pubdate = time.strftime("%y-%m-%d  %H:%M:%S", localtime)
         desc = str(res["data"]["desc"])
@@ -86,7 +86,7 @@ def bilibili_search(data):
         )
         txt += (
             f"{res["data"]["bvid"]}  [AV{res["data"]["aid"]}]\n"
-            "https://b23.tv/" + res["data"]["bvid"] + "\n"
+            f"https://b23.tv/{res["data"]["bvid"]}\n"
             f"分区：{res["data"]["tname"]}\n"
             f"发布时间：{pubdate}\n"
         )
@@ -99,17 +99,15 @@ def bilibili_search(data):
         )
         # 弹幕danmaku
     else:
-        return get_msg(data, "bot被玩坏了T_T，请稍后再试"), 400
+        return get_msg(data, "bot被玩坏了╥﹏╥，请稍后再试"), 400
 
-    reply = (
-        [{"type": "reply", "data": {"id": data["message_id"]}}]
-        + [pic]
-        + [
-            {
-                "type": "text",
-                "data": {"text": txt},
-            }
-        ]
-    )
+    reply = [{"type": "reply", "data": {"id": data["message_id"]}}]
+    +[pic]
+    +[
+        {
+            "type": "text",
+            "data": {"text": txt},
+        }
+    ]
     post_msg(data, reply)
     return "bilibili", 200

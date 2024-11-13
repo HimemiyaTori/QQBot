@@ -11,7 +11,8 @@ def chu_update(data):
     etag = open("chuData/etag.txt", "r").read()
     etag = {"If-None-Match": etag}
     res = requests.get(
-        "https://www.diving-fish.com/api/chunithmprober/music_data", headers=etag
+        "https://www.diving-fish.com/api/chunithmprober/music_data",
+        headers=etag,
     )
     if res.status_code == 200:
         print("chu更新数据")
@@ -35,10 +36,9 @@ def chu_update(data):
 
 def chu_search(data):
     chu_update(data)
-    id = []
-    list = []
+    id = []  # 储存id（包含别名表里找到的多个id）
+    list = []  # 处理可能找到的多个歌曲
     songs = json.loads(str(chu_data), strict=False)
-    img = ""
     text = "没找到你想要的歌曲呢"
     name = str(data["raw_message"]).partition(" ")[2].lower()
 
@@ -69,10 +69,20 @@ def chu_search(data):
                 f"分类：{song["basic_info"]["genre"]}\n"
                 f"版本：{song["basic_info"]["from"]}"
             )
+            debug.print(text)
             list.append(song)
-            break
+            if len(id) == 1 or len(song["ds"]) == 6:
+                break
 
-    debug.print(text)
+    if len(list) > 1:
+        msg = "查询到多个歌曲，请使用ID查询。\n"
+        for i in range(len(list)):
+            msg += f"{list[i]['id']}. {list[i]['title']}\n"
+        msg = msg[:-1]  # 切片删换行
+        get_msg(data, msg)
+        return "多个歌曲", 200
+
+    img = ""
     if len(list) > 0:
         getPic(list[0], "chu")
         img = {
@@ -89,10 +99,10 @@ def chu_search(data):
 
 
 def chu_random(data):
-    diffNum = random.randint(2, 4)  # 下面name的索引
-    diffName = ["Basic ", "Advanced ", "Expert ", "Master ", "Ultima ", "Wrold's End "]
-    nd = -1  # 难度。处理指定等级，若存在处理后为下面level的索引
-    diff = ["12", "12+", "13", "13+", "14", "14+", "15"]
+    lv_num = random.randint(2, 4)  # 下面name的索引
+    lv_name = ["Basic ", "Advanced ", "Expert ", "Master ", "Ultima ", "Wrold's End "]
+    nd = None  # 难度。处理指定等级，若存在则处理后为下面level的索引
+    lv = ["12", "12+", "13", "13+", "14", "14+", "15"]
 
     # 判断后面有无限定条件：等级、难度
     info = str(data["raw_message"]).partition(" ")
@@ -104,65 +114,64 @@ def chu_random(data):
             if "+" in info:
                 nd += 1
             if num == 5:
-                diffNum = 3
+                lv_num = 3
             if num < 3:
-                diffNum = random.randint(2, 3)
+                lv_num = random.randint(2, 3)
         if "红" in info:
-            diffNum = 2
+            lv_num = 2
         if "紫" in info:
-            diffNum = 3
+            lv_num = 3
         if "黑" in info:
-            diffNum = 4
+            lv_num = 4
         if (
             "彩" in info
             or "worldsend" in info.replace("'", "").replace(" ", "").lower()
         ):
-            diffNum = 5
+            lv_num = 5
 
     chu_update(data)
     songs = json.loads(str(chu_data), strict=False)
     song = random.choice(songs)
     # 难度判断
-    while nd != -1 and diffNum != 5:
-        if diffNum == 4 and len(song["ds"]) != 5:
+    while nd != None and lv_num != 5:
+        if lv_num == 4 and len(song["ds"]) != 5:
             song = random.choice(songs)
             continue
         if len(song["ds"]) == 6:
             song = random.choice(songs)
             continue
-        if song["level"][diffNum] == diff[nd]:
+        if song["level"][lv_num] == lv[nd]:
             break
         song = random.choice(songs)
     # 黑谱判断
-    while diffNum == 4:
+    while lv_num == 4:
         if len(song["ds"]) == 5:
             break
         song = random.choice(songs)
     # 彩谱判断
-    while diffNum == 5:
+    while lv_num == 5:
         if len(song["ds"]) == 6:
             break
         song = random.choice(songs)
 
-    ndInfo = diffName[diffNum]
-    if diffNum != 5:
-        ndInfo += str(song["ds"][diffNum])
-
+    ndInfo = lv_name[lv_num]
+    if lv_num != 5:
+        ndInfo += str(song["ds"][lv_num])
+    else:
+        ndInfo += song["level"][5]
     getPic(song, "chu")
     img = {
         "type": "image",
         "data": {"file": f"file:///sdcard/Pictures/chuPic/{song["id"]}.png"},
     }
-
     song = (
         f"{song["title"]}  -  ID {song["id"]}\n"
-        f"难度：{ndInfo} ({song["charts"][diffNum]["charter"]})\n"
+        f"{ndInfo} ({song["charts"][lv_num]["charter"]})\n"
         f"作者：{song["basic_info"]["artist"]}\n"
         f"BPM：{song["basic_info"]["bpm"]}\n"
         f"分类：{song["basic_info"]["genre"]}\n"
         f"版本：{song["basic_info"]["from"]}"
     )
-
     msg = {
         "type": "text",
         "data": {"text": song},
@@ -200,7 +209,7 @@ def chu_alia(data):
                 if song["id"] in list["id"]:
                     list.append(song)
             for l in list:
-                msg += "ID " + l["id"] + " - " + l["title"] + "\n"
+                msg += f"{l["id"]}. {l["title"]}\n"
             msg = msg[:-1]  # 切片删换行
             get_msg(data, "查询到多个歌曲，请使用ID查询\n" + msg)
             return "多个别名", 200
@@ -208,7 +217,7 @@ def chu_alia(data):
         for a in alia:
             msg += a + "，"
         msg = msg[:-1]
-        get_msg(data, "ID为" + str(list[0]["id"]) + "的歌曲有以下别名：\n" + msg)
+        get_msg(data, f"ID为{list[0]["id"]}的歌曲有以下别名：\n{msg}")
     else:
         list.append({"id": re.sub(r"\s*id\s*", "", name)})
 
@@ -217,30 +226,28 @@ def chu_alia(data):
                 for a in item["aliases"]:
                     msg += a + "，"
                 msg = msg[:-1]
-                get_msg(
-                    data, "ID为" + str(item["song_id"]) + "的歌曲有以下别名：\n" + msg
-                )
+                get_msg(data, f"ID为{item["song_id"]}的歌曲有以下别名：\n{msg}")
                 break
 
     return "别名", 200
 
 
 def cut_title(title, len):
-    text = ""
+    txt = ""  # 暂存文字
     is_cut = False
     draw = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
     for word in title:
-        title_bbox = draw.textbbox(
+        box = draw.textbbox(
             (0, 0),
-            text.replace("°", ""),
+            txt.replace("°", ""),
             font=ImageFont.truetype("C:/WINDOWS/FONTS/UDDIGIKYOKASHON-B.TTC", 16),
         )
-        title_width = title_bbox[2] - title_bbox[0]
-        text += word
-        if title_width > len:
+        width = box[2] - box[0]
+        txt += word
+        if width > len:
             is_cut = True
             break
-    return text, is_cut
+    return txt, is_cut
 
 
 def txt_faded(txt, width):
@@ -303,7 +310,7 @@ def chu_b30(data):
     get_msg(data, "生成B30中，请稍等")
     user_info = json.loads(res.text)
 
-    margin_x = 200
+    margin_x = 200  # 整张图左边距
     margin_y = 50
     font = "C:/WINDOWS/FONTS/UDDIGIKYOKASHON-B.TTC"
     font_xxl = ImageFont.truetype(font, 50)
@@ -352,7 +359,11 @@ def chu_b30(data):
     rounded_draw = ImageDraw.Draw(rounded_mask)
     rounded_draw.rounded_rectangle([(0, 0), name_bg.size], 6, fill=255)  # 圆角半径3
     name_bg.putalpha(rounded_mask)
-    bg.paste(name_bg, (margin_x, margin_y), name_bg)
+    bg.paste(
+        name_bg,
+        (margin_x, margin_y),
+        name_bg,
+    )
     margin_y += 20
     draw.text(
         (margin_x + 180, margin_y),
@@ -360,8 +371,8 @@ def chu_b30(data):
         "black",
         font=font_xxl,
     )
-    margin_y += 75
 
+    margin_y += 75
     rt_pos = (margin_x + 180, margin_y)
     rt_param = {
         "xy": rt_pos,
@@ -409,9 +420,9 @@ def chu_b30(data):
     img_paths = []
     for s in user_info["records"]["b30"]:
         img_paths.append(getPic(s, "chu"))  # mid 歌曲id；cid 谱面id
-        b30_tot += s["ra"]
-        b30_lv += s["ds"]
-        b30_score += s["score"]
+        b30_tot += s["ra"]  # 用于计算平均rt
+        b30_lv += s["ds"]  # 平均定数
+        b30_score += s["score"]  # 平均分数
     for s in user_info["records"]["r10"]:
         img_paths.append(getPic(s, "chu"))
         r10_tot += s["ra"]
@@ -434,7 +445,7 @@ def chu_b30(data):
     b30_lv = f"{b30_lv/30:.2f}"
     r10_lv = f"{r10_lv/10:.2f}"
 
-    margin_y += 150
+    margin_y += 150  # TODO =?
     b30_pos = (margin_x, margin_y)
     r10_pos = 0
 
@@ -466,7 +477,7 @@ def chu_b30(data):
         b30_pos,
         f"B30 - {b30_avg}",
         font=font_xxl,
-    )  # 最长宽度（5个数）：300
+    )  # 最大宽度（5位数）：300
     draw.text(
         r10_pos,
         f"R10 - {r10_avg}",
@@ -489,7 +500,7 @@ def chu_b30(data):
     for img, pos, info in zip(
         song_imgs, position, user_info["records"]["b30"] + user_info["records"]["r10"]
     ):
-        margin_left = 10
+        margin_left = 10  # 框内左边距
         margin_top = 10
         # 背景
         color_bg = Image.open(f"asset/bg_{info['level_label']}.png")
@@ -525,12 +536,12 @@ def chu_b30(data):
         }
         draw.text(**level_param)
         level_bbox = draw.textbbox(**level_param)
-        top_height = level_bbox[3] - level_bbox[1] + margin_top + 12
+        tot_height = level_bbox[3] - level_bbox[1] + margin_top + 12
 
         # 标题处理
         title = ""
         is_cut = False
-        title_len = 168
+        title_len = 168  # 限制的长度
         # sb日本人用全角，换个字体
         if "°" in info["title"]:
             du_param = {
@@ -556,17 +567,17 @@ def chu_b30(data):
                         )
                         # 字体问题多了一点
                         text_width = text_bbox[2] - text_bbox[0] - 16
-                        # 将处理过的文字图层合成到背景图上
+                        # 将处理过的标题图层加到背景图上
                         txt = txt_faded(text, text_width)
                         bg.paste(
                             txt,
-                            (pos[0] + pic_width + width, pos[1] + top_height),
+                            (pos[0] + pic_width + width, pos[1] + tot_height),
                             txt,
                         )
                     break
 
                 param = {
-                    "xy": (pos[0] + pic_width + width, pos[1] + top_height),
+                    "xy": (pos[0] + pic_width + width, pos[1] + tot_height),
                     "text": text,
                     "font": font_small,
                 }  # 标题参数
@@ -574,7 +585,7 @@ def chu_b30(data):
                 width += bbox[2] - bbox[0]
                 du_param["xy"] = (
                     pos[0] + pic_width + width,
-                    pos[1] + top_height,
+                    pos[1] + tot_height,
                 )
                 draw.text(**param)
                 draw.text(**du_param)
@@ -582,16 +593,16 @@ def chu_b30(data):
         else:
             title, is_cut = cut_title(info["title"], title_len)
             if is_cut:
-                # 将处理过的文字图层合成到背景图上
+                # 将处理过的标题图层加到背景图上
                 txt = txt_faded(title, title_len)
                 bg.paste(
                     txt,
-                    (pos[0] + pic_width, pos[1] + top_height),
+                    (pos[0] + pic_width, pos[1] + tot_height),
                     txt,
                 )
             else:
                 draw.text(
-                    (pos[0] + pic_width, pos[1] + top_height),
+                    (pos[0] + pic_width, pos[1] + tot_height),
                     title,
                     font=font_small,
                 )
@@ -601,10 +612,10 @@ def chu_b30(data):
             title,
             font_small,
         )
-        tot_height = top_height + bbox[3] - bbox[1] + 7
+        tot_height += bbox[3] - bbox[1] + 7
 
         # 达成率处理
-        main_part = f"{int(info["score"]):,}"  # 每3个数字加一个逗号
+        main_part = f"{int(info["score"]):,}"  # 每3个数加逗号
         main_param = {
             "xy": (pos[0] + pic_width, pos[1] + tot_height),
             "text": main_part,
@@ -622,7 +633,7 @@ def chu_b30(data):
         rating += ra[1].ljust(2, "0")
         ds_param = {
             "xy": (pos[0] + pic_width, pos[1] + tot_height),
-            "text": (str(info["ds"]) + " → " + rating),
+            "text": f"{info["ds"]} → {rating}",
             "font": ImageFont.truetype(font, 21),
         }
         draw.text(**ds_param)
@@ -658,38 +669,39 @@ def chu_b30(data):
             rate = "sss"  # SSS
         else:
             rate = "sssp"
-        # 短原size 64x18    长size 132x24
-        rate_image = Image.open(f"{asset}{rate}.webp").resize((83, 16))
+        # 原size 132x24（记录：短size 64x18）
+        rate_img = Image.open(f"{asset}{rate}.webp").resize((83, 16))
         bg.paste(
-            rate_image,
+            rate_img,
             (pos[0] + pic_width, pos[1] + tot_height),
         )
 
         fc = info["fc"]
         if fc != "":
-            if "full" in fc:
+            if "full" in fc:  # fullchain也是fc
                 fc = "fullcombo"
-            image = Image.open(f"{asset}{fc}.webp").resize((83, 16))
+            img = Image.open(asset + fc + ".webp").resize((83, 16))
             bg.paste(
-                image,
-                (pos[0] + pic_width + rate_image.size[0] + 8, pos[1] + tot_height),
+                img,
+                (pos[0] + pic_width + rate_img.size[0] + 8, pos[1] + tot_height),
             )
 
         cnt += 1
         cnt = 1 if cnt > 30 else cnt
 
-    bg.save("C:/Users/12203/Desktop/test123.png")
     bg = bg.convert("RGB")
-    # bg.save("C:/Users/12203/Desktop/test111.jpg", quality=90)
     buffer = io.BytesIO()
     bg.save(buffer, format="JPEG", quality=90)
-    bg = base64.b64encode(buffer.getvalue()).decode("utf-8")
+    buffer.seek(0)  # 重置文件指针
+    return buffer.getvalue()
+    # bg = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
-    reply_msg = [{"type": "reply", "data": {"id": data["message_id"]}}] + [
-        {
-            "type": "image",
-            "data": {"file": "base64://" + bg},
-        }
-    ]
-    post_msg(data, reply_msg)
-    return "b30", 200
+    # reply_msg = [{"type": "reply", "data": {"id": data["message_id"]}}]
+    # +[
+    #     {
+    #         "type": "image",
+    #         "data": {"file": "base64://" + bg},
+    #     }
+    # ]
+    # post_msg(data, reply_msg)
+    # return "b30", 200
