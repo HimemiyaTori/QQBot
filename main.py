@@ -1,5 +1,7 @@
 from __init__ import *
 
+img = None
+
 
 def arc_b30(data):
     get_msg(data, "正在获取B30，需要约20秒，请稍等。注意撤回你的cookie哦！")
@@ -40,8 +42,8 @@ def post_data():
     if "raw_message" not in data:
         return "nothing", 200
 
-    if "[CQ:at,qq=3937926418] " in msg:
-        data["raw_message"] = msg.replace("[CQ:at,qq=3937926418] ", "")
+    if "[CQ:at,qq=1] " in msg:
+        msg = data["raw_message"] = msg.replace("[CQ:at,qq=1] ", "")
         if msg == "":
             return (
                 get_msg(
@@ -53,16 +55,26 @@ def post_data():
                     "4. mai[chu]找歌 <歌名[id114514]>：根据歌名或id查询歌曲信息\n"
                     "5. mai[chu]别名 <歌名[id114514]>：根据歌名或id查询歌曲别名\n"
                     "6. mai[chu]随机 (紫[白][宴]13+)\n"
-                    "7. b30[b50] (用户名)：生成成绩图，不输用户名则用QQ号查询\n",
+                    "7. b30[b50] (用户名)：生成成绩图，不输用户名则用QQ号查询\n"
                     "8. @bot bv号[av号]：查询bilibili视频信息",
                 ),
                 200,
             )
-        data["raw_message"] = msg[:2].lower() + msg[2:]
+        msg = data["raw_message"] = msg[:2].lower() + msg[2:]
         if msg.startswith("bv") or msg.startswith("av"):
             return bilibili_search(data)
 
     msg = msg.lower()
+    if msg == "test":
+        msg = {
+            "type": "image",
+            "data": {
+                "file": "https://assets2.lxns.net/chunithm/jacket/2406.png",
+                "url": "https://assets2.lxns.net/chunithm/jacket/2406.png",
+            },
+        }
+        return get_msg(data, msg), 200
+
     if msg.startswith("arc b30"):
         return arc_b30(data)
 
@@ -75,15 +87,22 @@ def post_data():
         return mai_update(data)
     if msg.startswith("mai别名"):
         return mai_alia(data)
-    if msg.startswith(any(["mai找歌", "mai查歌", "mai搜索", "mai查找", "mai查询"])):
+    if any(
+        msg.startswith(txt)
+        for txt in ["mai找歌", "mai查歌", "mai搜索", "mai查找", "mai查询"]
+    ):
         return mai_search(data)
-    if msg.startswith(
-        any(["mai随机", "mai随歌", "mai随个歌", "mai随首歌", "mai随机歌曲"])
+    if any(
+        msg.startswith(txt)
+        for txt in ["mai随机", "mai随歌", "mai随个歌", "mai随首歌", "mai随机歌曲"]
     ):
         return mai_random(data)
 
     if msg.startswith("b30"):
-        redirect(url_for("process_image"))
+        # res = requests.get("http://localhost:8889/image", params={"data": data})
+        # print(res)
+        global img
+        img = chu_b30(data)
         reply = [
             {
                 "type": "reply",
@@ -92,28 +111,43 @@ def post_data():
         ] + [
             {
                 "type": "image",
-                "data": {"file": "http://localhost:8889/image"},
+                "data": {"url": "http://localhost:8889/image"},
             }
         ]
-        return get_msg(data, reply), 200
+        return post_msg(data, reply), 200
         # return chu_b30(data)
     if msg == "chu update":
         return chu_update(data)
     if msg.startswith("chu别名"):
         return chu_alia(data)
-    if msg.startswith(any(["chu找歌", "chu查歌", "chu搜索", "chu查找", "chu查询"])):
+    if any(
+        msg.startswith(txt)
+        for txt in ["chu找歌", "chu查歌", "chu搜索", "chu查找", "chu查询"]
+    ):
         return chu_search(data)
-    if msg.startswith(
-        any(["chu随机", "chu随歌", "chu随个歌", "chu随首歌", "chu随机歌曲"])
+    if any(
+        msg.startswith(txt)
+        for txt in ["chu随机", "chu随歌", "chu随个歌", "chu随首歌", "chu随机歌曲"]
     ):
         return chu_random(data)
 
     return "nothing", 200
 
 
-@app.route("/image")
+@app.route("/image", methods=["GET", "POST"])
 def process_image():
-    buffer = chu_b30(data)
+    global img
+    if img is None:
+        return "no img", 404
+    return send_file(img, mimetype="image/png")
+    # data = eval(g.data)
+    # data = request.args.get("data")
+    # data = json.loads(data)
+    # data = {
+    #     "txt": txt,
+    #     "id": id,
+    # }
+    # buffer = chu_b30(data)
     # reply = [{
     #     "type": "reply",
     #     "data": {"id": data["message_id"]},
@@ -121,7 +155,9 @@ def process_image():
     #     "type": "image",
     #     "data": {"file": "http://localhost:8889/image"},
     # }]
-    return send_file(buffer, mimetype="image/png")
+    # return send_from_directory("C:/Users/12203/Desktop/b30.png")
+    # return send_file(buffer, mimetype="image/png")
+
     # # 假设这里是图片处理逻辑
     # img = Image.new('RGB', (100, 100), color='blue')  # 示例生成蓝色图片
     # img = img.rotate(45)  # 进行图片处理，如旋转图片

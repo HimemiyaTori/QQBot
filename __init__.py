@@ -11,7 +11,15 @@ import time
 import certifi
 import opencc
 import requests
-from flask import Flask, jsonify, request, send_file, redirect, url_for
+from flask import (
+    Flask,
+    jsonify,
+    redirect,
+    request,
+    send_file,
+    send_from_directory,
+    url_for,
+)
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from selenium import webdriver
 from selenium.webdriver.common.by import By

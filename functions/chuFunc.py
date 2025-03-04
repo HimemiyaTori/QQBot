@@ -9,10 +9,17 @@ asset = "asset/chu/"
 
 def chu_update(data):
     etag = open("chuData/etag.txt", "r").read()
-    etag = {"If-None-Match": etag}
+    # etag = {"If-None-Match": etag}
+    headers = {
+        "If-None-Match": etag,
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0",
+        "Accept": "*/*",
+        "Host": "www.diving-fish.com",
+        "Connection": "keep-alive",
+    }
     res = requests.get(
         "https://www.diving-fish.com/api/chunithmprober/music_data",
-        headers=etag,
+        headers=headers,
     )
     if res.status_code == 200:
         print("chu更新数据")
@@ -689,11 +696,14 @@ def chu_b30(data):
         cnt += 1
         cnt = 1 if cnt > 30 else cnt
 
-    bg = bg.convert("RGB")
+    bg.save(
+        f"C:/Users/12203/Desktop/b30.png"
+    )  # _{data["user_id"] if name==None else name}
+    # bg = bg.convert("RGB")
     buffer = io.BytesIO()
-    bg.save(buffer, format="JPEG", quality=90)
+    bg.save(buffer, format="PNG")
     buffer.seek(0)  # 重置文件指针
-    return buffer.getvalue()
+    return buffer
     # bg = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
     # reply_msg = [{"type": "reply", "data": {"id": data["message_id"]}}]

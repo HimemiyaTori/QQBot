@@ -31,7 +31,7 @@ def get_msg(data, msg):
 
 def bot_exit(data):
     if data["message_type"] == "group":
-        if data["user_id"] == 1220332747:
+        if data["user_id"] == 1:
             get_msg(data, "哼，那我走了")
             requests.get(
                 "http://localhost:3939/set_group_leave",
@@ -101,13 +101,13 @@ def bilibili_search(data):
     else:
         return get_msg(data, "bot被玩坏了╥﹏╥，请稍后再试"), 400
 
-    reply = [{"type": "reply", "data": {"id": data["message_id"]}}]
-    +[pic]
-    +[
+    reply = [
+        {"type": "reply", "data": {"id": data["message_id"]}},
+        pic,
         {
             "type": "text",
             "data": {"text": txt},
-        }
+        },
     ]
     post_msg(data, reply)
     return "bilibili", 200

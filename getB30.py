@@ -12,7 +12,10 @@ def b30(cookie):
             cookie = json.load(f)
     else:
         cookie = json.loads(
-            cookie.replace("&#91;", "[").replace("&#93;", "]").replace("&#44;", ",")
+            str(cookie)
+            .replace("&#91;", "[")
+            .replace("&#93;", "]")
+            .replace("&#44;", ",")
         )
 
     # 删除字段防止报错
